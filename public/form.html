@@ -1,8 +1,46 @@
-<html>
+<html style= "padding: 15 350 0 350">
     <head>
         <title>Form</title>
+        <link rel="stylesheet" type="text/css" href="site.css" >
+        <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     </head>
     <body>
-        <h3>Hello World!!!</h3>
+        <form>
+                <label>Add article</label>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text">Title</label>
+                    </div>                    
+                    <textarea id="inTitle" class="form-control"></textarea>
+                </div>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text">Text</label>
+                    </div>                    
+                    <textarea id="inText" class="form-control"></textarea>
+                </div>   
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text">Date</label>
+                    </div>                    
+                    <textarea id="inDate" class="form-control"></textarea>
+                </div>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text">Author</label>
+                    </div>                   
+                    <textarea id="inAuthor" class="form-control"></textarea>
+                </div>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text">Page</label>
+                    </div>                    
+                    <textarea id="inPage" class="form-control"></textarea>
+                </div>
+                
+                <button id="Add" class="btn btn-danger" onclick="AddArticle()">Add</button>
+        </form>
+        <div id="status" class="form-group"/>
+        <script src="form.js"></script>
     </body>
 </html>

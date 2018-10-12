@@ -1,59 +1,85 @@
 const http = require('http');
 const fs = require("fs");
+let path = require("path");
 
 const hostname = '127.0.0.1';
-const port = 3000;
+const port = 3001;
 
 const handlers = {
   '/api/articles/readall': readall, //возвращает массив статей с комментариями
   '/api/articles/read': read,//возвращает статью с комментариями по переданному в теле запроса id 
   '/api/articles/create': create, //создает статью с переданными в теле запроса параметрами / id генерируется на сервере / сервер возвращает созданную статью 
   '/api/articles/update': update, //обновляет статью с переданными параметрами по переданному id
-  '/api/articles/delete': deleteArticle //удаляет комментарий по переданному id
+  '/api/articles/delete': deleteArticle, //удаляет комментарий по переданному id
+  '/': home 
+
 };
 
+
 const server = http.createServer((req, res) => {
-  const homePage = fs.readFileSync("./public/index.html", "utf8");
-  switch(req.url){
-    case '/' : {
-      res.setHeader('Content-Type', 'text/html');
-      res.end(homePage);
-      break;
-    }
-    case '/index.html':{
-      res.setHeader('Content-Type', 'text/html');
-      res.end(homePage);
-      break;
-    }
-    case '/form.html':{
-      let formHTML = fs.readFileSync("./public/form.html", "utf8");
-      res.setHeader('Content-Type', 'text/html');
-      res.end(formHTML);
-      break;
-    }
-    case '/app.js':{
-      let indexJS = fs.readFileSync("./public/index.js", "utf8");
-      res.setHeader('Content-Type', 'text/js');
-      res.end(indexJS);
-      break;
-    }
-    case '/form.js':{
-      let formJS = fs.readFileSync("./public/form.js", "utf8");
-      res.setHeader('Content-Type', 'text/js');
-      res.end(formJS);
-      break;
-    }
-    case '/site.css':{
-      let siteCSS = fs.readFileSync("./public//site.css", "utf8");
-      res.setHeader('Content-Type', 'text/css');
-      res.end(siteCSS);
-      break;
-    }
-    default: {
-      res.setHeader('Content-Type', 'text/html');
-      res.end("<h1>Error not found</h1>");
-    }
-  }
+  const handler = getHandler(req.url);
+  if(req.method == 'GET'){
+    let extension = path.extname(req.url);
+    let url = req.url.split('/');   // res.statusCode = 200;
+   
+    if(extension == '.html')
+    {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html");
+        let data = fs.readFileSync(path.join("public",url[1]));
+		    res.end(data);
+   }
+    else if(extension == '.js'){
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/plain");
+        let filename;
+        if(req.url.indexOf('app.js')==0){
+          filename = "index.js";
+        }else{
+          filename="form.js";
+        }
+		    let data = fs.readFileSync(path.join("public",filename));
+		    res.end(data);
+      }
+      else if(extension=='.css'){
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/css");
+		    let data = fs.readFileSync(path.join("public",url[1]));
+		    res.end(data);
+      }
+      else if(extension=='.ico'){
+        res.statusCode = 200;
+      }
+      else if(req.url.indexOf('/form.html?')==0){
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html");
+        let data = fs.readFileSync(path.join("public","form.html"));
+		    res.end(data);
+      }
+      else{
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html");
+		    let data = fs.readFileSync("public\\index.html");
+        res.end(data);
+      }
+	
+  }else{
+    parseBodyJson(req, (err, payload) => {
+      handler(req, res, payload, (err, result) => {
+        if (err) {
+          res.statusCode = err.code;
+          res.setHeader('Content-Type', 'application/json');
+          res.end( JSON.stringify(err) );
+  
+          return;
+        }
+  
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end( JSON.stringify(result) );
+      });
+    });
+  } 
 });
 
 server.listen(port, hostname, () => {
@@ -69,19 +95,16 @@ function getHandler(url) {
 
 //возвращает массив статей с комментариями
 function readall(req, res, payload, cb) {
-  
-  let result= {};
+
   const fileContent = getJSONContent();
   let  fileContentArray = Array.from(fileContent);
 
   //======СОРТИРОВКА========
   const sortType = payload.sortOrder;
   const sortField = payload.sortField;
-  const flag = payload.includeDeps | false;
-    //=========СТРАНИЦЫ И  ЗАПИСИ=========
-
+  const flag = payload.includeDeps;
   const page = payload.page ;
-  const limit = payload.limit | 1;
+  const limit = payload.limit;
 
   switch(sortField){
     case 'id' : {
@@ -116,41 +139,29 @@ function readall(req, res, payload, cb) {
     }
   }
 
-  if(!flag){
-    fileContentArray.forEach((element)=>{
-      element.comments = "hiden";
-    });
-  } 
+  let articles = [];
+  let i=0;
+  while(i< limit && i < fileContentArray.length){
+    if(fileContentArray[i].page == page){
+      let result= {};
+      result.id = fileContentArray[i].id;
+      result.title = fileContentArray[i].title;
+      result.text = fileContentArray[i].text;
+      result.date = fileContentArray[i].date;
+      result.author = fileContentArray[i].author;
+      result.page = fileContentArray[i].page;
 
-  fileContentArray.forEach((element) =>{
-    
-    if(element.page == page){
-      result.id = element.id;
-      result.title = element.title;
-      result.text = element.text;
-      result.date = element.date;
-      result.author = element.author;
-      result.page = element.page;
+      if(flag == "true"){
+        result.comments = fileContentArray[i].comments;
+      }
 
-      let messages = [];
-      let message = {};
-      let arr = Array.from(element.comments);
-      let i =0;
-      
-        while(i< limit && i<arr.length){
-          message.id = arr[i].id;
-          message.date = arr[i].date;
-          message.author = arr[i].author;
-          messages.push(message);
-          i++;
-        }
-        result.comments = messages;
+      articles.push(result);
     }
-  })
-  
-  
-  cb(null, result);
+    i++;
+  }
+  cb(null, articles);
 }
+
 
 //===ФУНКЦИИ СРАВНЕНИЯ=====
 function comparebyId(obj1, obj2){
@@ -193,6 +204,7 @@ function read(req, res, payload, cb) {
   cb(null, result);
 }
 
+
 //создает статью с переданными в теле запроса параметрами / id генерируется на сервере / сервер возвращает созданную статью 
 function create(req, res, payload, cb) {
   const fileContent = getJSONContent();
@@ -202,13 +214,16 @@ function create(req, res, payload, cb) {
 
   let article = payload;
   article.id = id;
+  fileContent.push(article);
+  /*
   (Array.from(article.comments)).forEach(element => {
+    element.id = Date.now();
     element.articleId = id;
   });
+*/
+  //fileContent[--id] = article; 
 
-  fileContent[--id] = article; 
-
-  rewriteJSON(fileContent);                              
+  rewriteJSON(fileContent);                          
   const result = "article created";
 
   cb(null, result);
@@ -219,7 +234,6 @@ function update(req, res, payload, cb) {
   const fileContent = getJSONContent();
 
   let id = payload.id;
-  console.log(id);
   let article = payload;
 
   fileContent[--id] = article; 
@@ -254,16 +268,8 @@ function deleteArticle(req, res, payload, cb) {
   cb(null, result);
 }
 
+function home(req, res, cb) {
 
-//home page
-function home(req, res, payload, cb) {
-  let result;
-
-  homePage = fs.readFileSync("./public/index.html", "utf8");
-  res.setHeader('Content-Type', 'text/html');
-  res.end(homePage);
-  
-  cb(null, result);
 }
 
 //===================ДОП ФУНКЦИОНАЛ=================
@@ -288,7 +294,7 @@ function getJSONContent(){
 
 function rewriteJSON(cntnt){
   const newJson = JSON.stringify(cntnt);
-  fs.writeFileSync("js.json", newJson);
+  fs.writeFileSync("articles.json", newJson);
 }
 
 function notFound(req, res, payload, cb) {
@@ -304,8 +310,8 @@ function parseBodyJson(req, cb) {
     body = Buffer.concat(body).toString();
 
     let params = JSON.parse(body);
+    
     cb(null, params);
   });
 }
-
 
